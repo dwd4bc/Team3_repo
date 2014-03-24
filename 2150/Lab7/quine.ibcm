@@ -1,0 +1,24 @@
+C005 00 jmp Skip/Jump the variables
+0000 01 dw int index
+0018 02 Element 18 (for loop limit)
+0001 03 one Creating a one element
+3000 04 load Start of a store command, to be modified later
+3002 05 load Load loop limit, START OF LOOP
+6001 06 sub Subtract index from 18 to see if index>=18(hex)
+D018 07 jmpl Jump to end of loop/program if index is 18
+3001 08 load Load index (check if index == 1 because of problems printing index)
+6003 09 sub Subtract 1 to check index == 1
+D014 0A jmp Jump to 0014 if index == 1
+3004 0B load Load 3000 to begin special load instruction
+5001 0C add Add index to load instruction
+400e 0D store Store load instruction in the next memory address (300E)
+300e 0E load Load command but it is a dummy line of code
+1800 0F PrintH Print the most recently loaded line
+3001 10 load Load index to do index +=1
+5003 11 add Add one to index
+4001 12 store Store index back into index for incrementation
+c005 13 jmp Jump to beginning of loop
+3001 14 load Load index
+6001 15 sub Subtract index from index to print out 0000
+1800 16 PrintH //Sravan Tumuluri skt3rt 10/30/13 quine.ibcm
+c010 17 jmp Jump to go back to incrementation of index

@@ -1,0 +1,26 @@
+	global product
+	
+	section .text
+
+
+product:
+
+	mov eax, [esp+4]
+	mov ecx, [esp+8]
+	mov edx, [eax]
+	cmp eax, 0
+	mov eax, 0
+	jle product_done
+	cmp ecx, 0
+	jle product_done
+	
+product_loop:
+	add eax, edx		
+	dec ecx
+	cmp ecx, 0
+	jg product_loop
+
+product_done:
+	ret 
+
+

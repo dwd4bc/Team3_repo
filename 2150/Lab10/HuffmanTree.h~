@@ -1,0 +1,23 @@
+#ifndef HUFFMANTREE_H
+#define HUFFMANTREE_H
+
+#include "HuffmanTreeNode.h"
+
+class HufmanTree
+{
+     private:
+          HuffmanTreeNode *root;                 // Pointer to dynamically allocated array
+         
+     public:
+          Heap(int size = 10);                     // Parameterized constructor
+          ~Heap();                                 // Destructor
+          void ReheapDown(int root, int bottom);   // Reheap after removing item
+          void ReheapUp(int root, int bottom);     // Reheap after inserting item
+          bool Enqueue(HeapItem *item);            // Add an item to the heap
+          bool Enqueue(int key, double data);      // Add an item to the heap
+          HeapItem *Dequeue();                     // Get item at the root
+          int getNumElements();                    // Return number of elements in the heap
+          void printAll();                         // Print all the elements in the heap
+};
+
+#endif

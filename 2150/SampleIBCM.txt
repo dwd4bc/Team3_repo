@@ -1,0 +1,20 @@
+C008 00 jmp Skip all variables
+0000 01 dw int s for size of array
+0000 02 dw int i for index of array
+0000 03 dw int a[] for the array
+0000 04 dw int a0 for element 0 of array
+0000 05 dw int a1 for element 1 of array
+0000 06 dw int a2 for element 2 of array
+0000 07 dw int a3 for element 3 of array
+0000 08 dw int a4 for element 4 of array
+0000 09 zero A zero element
+0001 0A one A one element
+0002 0B two A two element
+3009 0C load Load zero element
+4004 0D store Store zero into a0
+4005 0E store Store zero into a1
+300A 0F load Load one element
+4008 10 store Store one into a4
+4007 11 store Store one into a3
+300B load Load two element
+4006 store Store two into a2

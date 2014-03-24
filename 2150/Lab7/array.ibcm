@@ -1,0 +1,55 @@
+C00F 00 jmp Skip all variables
+0000 01 dw int s for size of array
+0000 02 dw int i for index of array
+0000 03 dw int a[] for the array
+0000 04 dw int a0 for element 0 of array
+0000 05 dw int a1 for element 1 of array
+0000 06 dw int a2 for element 2 of array
+0000 07 dw int a3 for element 3 of array
+0000 08 dw int a4 for element 4 of array
+0000 09 zero A zero element
+0001 0A one A one element
+0002 0B two A two element
+0005 0C five A five element
+0100 0D 100 element for address of array
+0000 0E dw int max
+4000 0F store storeit to start storing the array
+3009 10 load Load zero element
+4004 11 store Store zero into a0
+4005 12 store Store zero into a1
+300A 13 load Load one element
+4008 14 store Store one into a4
+4007 15 store Store one into a3
+300B 16 load Load two element
+4006 17 store Store two into a2
+300D 18 load Load 100 element
+4003 19 store Store 100 into base address
+3009 1A load Load the zero element
+4002 1B store Store the zero into in i
+300C 1C load Load five element
+4001 1D store Store five into size
+3009 1E load Load zero element
+400E 1F store Store zero into max
+3001 20 load Load Array size, start of LOOP
+6002 21 sub subtract index from size to find i>=s
+E034 22 jmpl Jump to loop end
+D034 23 jmpe Jump to loop end
+300F 24 load Load storeit to start command to store array
+5003 25 add Add address to base address
+5002 26 add Add index
+4029 27 store Store the address into an upcoming instruction to create the array
+300B 28 load Load 2 element to be input into array
+B000 29 NOP store element into array
+300E 2A load Load int max
+600B 2B sub Subtract two from max to determine if greater than
+E02E 2C jmpl Jump to another line to set max
+C030 2D jmp Jump to skip the max set
+300B 2E load Load current element 
+400E 2F store Store element into max
+300A 30 Load one element
+5002 31 add Add index to increment
+4002 32 store Store this into index
+C020 33 jmp Jump to beginning of Loop
+300E 34 load Load max, END OF LOOP
+1800 35 PrintH, print out max
+B000 36 NOP Sravan Tumuluri skt3rt 10/29/13 array.ibcm

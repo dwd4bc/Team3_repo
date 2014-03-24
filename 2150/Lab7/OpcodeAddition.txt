@@ -1,0 +1,21 @@
+Intitialize variables (C006)
+a
+b
+c
+sum
+sum = 1
+loop: load sum
+sub 1
+jmpl done
+load a
+add b
+store sum
+load sum
+add c
+store sum
+load sum
+print sum
+jmp loop
+print a
+print b
+print c

@@ -1,0 +1,26 @@
+C006 00 jmp i n i t jmp p a s t v a r s
+0000 01 i dw i n t i
+0000 02 s dw i n t s
+0000 03 n dw i n t n
+0001 04 one dw
+0000 05 z e r o dw
+1000 06 i n i t readH read n
+4003 07 s t o r e n
+3004 08 l o a d one i = 1
+4001 09 s t o r e i
+3005 0A l o a d z e r o s = 0
+4002 0B s t o r e s
+3003 0C loop l o a d n i f i
+n , jmp x i t
+6001 0D sub i
+E016 0E jmpl x i t
+3002 0F l o a d s s += i
+5001 10 add i
+4002 11 s t o r e s
+3001 12 l o a d i i += 1
+5004 13 add one
+4001 14 s t o r e i
+C00C 15 jmp loop goto loop
+3002 16 x i t l o a d s p r i n t s
+1800 17 p
+0000 
