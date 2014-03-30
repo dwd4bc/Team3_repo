@@ -1,18 +1,4 @@
-# -*- coding: utf-8 -*-
-#
-# Name: Pyton Twisted binary file transfer demo (client)
-# Description: Simple demo which shows how you can transfer binary files using
-# the Twisted framework.
-#
-# Keep in mind that this is only a demo and there are many possible scenarios
-# where program can break.
-#
-# Author: Tomaž Muraus (http://www.tomaz-muraus.info)
-# License: GPL
 
-# Requirements:
-# - Python >= 2.5
-# - Twisted (http://twistedmatrix.com/)
 
 import os
 import optparse
