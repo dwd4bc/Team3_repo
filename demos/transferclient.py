@@ -1,5 +1,4 @@
 
-
 import os
 import optparse
 
@@ -44,7 +43,7 @@ class CommandLineProtocol(basic.LineReceiver):
             return
         
         if command == 'list' or command == 'help' or command == 'quit':
-            self.connection.transport.write('%s\n' % (command))ho
+            self.connection.transport.write('%s\n' % (command))
         elif command == 'get':
             try:
                 filename = data[1]
