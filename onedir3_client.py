@@ -1,92 +1,170 @@
-#!/usr/bin/env python
+import os, sys, shutil
 
-"""
-TCP client using Twisted.
-Modified from Core Python Application Programming, http://www.corepython.com/ .
+def rename(src,dst):
+	"""renames file or directory src to dst and returns True if successful"""
+	if os.path.isfile(src) or os.path.isdir(src):
+		
+		try:
+			os.renames(src,dst)
+			return True
+		except OSError, e:
+			print e
+		        return False
+	else: 
+		print "%s does not exist" % src
+		return False
 
-3rd party libraries need to be installed to run this!  Use pip to install:
-a) Twisted
+def move(src,dst):
+	"""moves the file or directory src to the directory dst and returns True if successful"""
+	#if os.access
+	try:
+		shutil.move(src,dst)
+		return True
+	except OSError, e:
+		print e
+        	return False
+	except shutil.Error, e:
+		print e
+		return False
 
-How to run these.  (Might be easier to run these from the command-line.)
-a) Start the server, tsTservTW.py.
-b) Start the client, this program, on the same computer. (In a different window.)
-c) In the client, type some text input.  You'll see that it's sent to the server,
-given a timestamp, and then sent back to the client, which prints the timestamped data.
-d) Hit return in the client to stop the client.
-e) In the server window, Hit CTRL-C or whatever your operating system requires to kill a running program.
+def copy(src,dst):
+	if os.path.isfile(src):
+		try:
+			shutil.copy2(src,dst)
+			return True
+		except OSError, e:
+			print e
+			return False
+		except shutil.Error, e:
+			print e
+			return False
 
-It should be possible to run these on two different computers.
-Start the server on one machine.
-When you start the client on the 2nd machine, give a command-line argument: the IP address
-or full internet hostname of the server machine.
+	elif os.path.isdir(src):
+		if os.path.isfile(dst) or os.path.isdir(dst):
+			print "Destination path already exists -- cannot overwrite directory"
+			return False
+		else:
+			try:
+				shutil.copytree(src,dst)
+				return True
+			except OSError, e:
+				print e
+				return False
+			except shutil.Error, e:
+				print e
+				return False
+	else:
+		print "%s does not exist" % src
+		return False
 
-"""
+def delete(path):
+	if os.path.isdir(path):	
+		try:
+			shutil.rmtree(path)
+			return True
+		except OSError, e:
+			print e
+		        return False
+		except shutil.Error, e:
+			print e
+			return False
 
-from twisted.internet import protocol, reactor
-import sys
+	elif os.path.isfile(path):
+		try:
+			os.remove(path)
+			return True
+		except OSError, e:
+			print e
+		        return False
 
-# HOST = '127.0.0.1'
-HOST = 'localhost'
-PORT = 8123
-user_command = ''
-
-class TSClntProtocol(protocol.Protocol):
-    def sendData(self):
-        """
-        Our own method, does NOT override anything in base class.
-        Get data from keyboard and send to the server.
-        """
-        data = raw_input('> ')
-        if data:
-            self.transport.write(data)
-        else:
-            self.transport.loseConnection() # if no data input, close connection
-
-    def connectionMade(self):
-        """ what we'll do when connection first made """
-        self.sendData()
-
-    def dataReceived(self, data):
-        """ what we'll do when our client receives data """
-        print "client received: ", data
-        self.sendData()  # let's repeat: get more data to send to server
-
-class TSClntFactory(protocol.ClientFactory):
-    protocol = TSClntProtocol
-    # next, set methods to be called when connection lost or fails
-    clientConnectionLost = clientConnectionFailed = \
-        lambda self, connector, reason: reactor.stop()  # version from book
-        # lambda self, connector, reason: handleLostFailed(reason)
-
-# Heck, I had this working with the code just above this, so you didn't need
-# the lamba.  But then I broke it.  Will post a new version with a fix.
-def handleLostFailed1(reason):
-    print 'Connection closed, lost or failed.  Reason:', reason
-    reactor.stop()
+	else:
+		print "%s does not exist" % path
+		return False
 
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        HOST = sys.argv[1]
-    print "Connecting to (HOST, PORT): ", (HOST, PORT)
-    print "Welcome to Team 3's OneDir! How may we help you?"
-    while (user_command != 'EXIT'):
-        print "SHOW - Show files in current directory"
-        print "CD - Change to anotherfile directory"
-        print "MOVE - Move a file to another directory"
-        print "EXIT - Exit OneDir"
-        print "CHAT - Start the chat client demo!"
-        user_command = raw_input()
+def create(path): 
+	if not os.path.exists(path):
+		try:	
+			os.makedirs(path)
+			return True
+		except OSError, e: 
+			print e
+			return False
+	else:
+		print "%s already exists" % path
+		return False
 
-        if (user_command == 'SHOW'):
-            print "Showing files..."
-        if (user_command == 'CD'):
-            print "Changing file directory..."
-        if (user_command == 'MOVE'):
-            print "Moving file to new directory..."
-        if (user_command == 'CHAT'):
-            print "Starting chat client..."
-            reactor.connectTCP(HOST, PORT, TSClntFactory())
-            reactor.run()
-        print "\n"
-    sys.exit()
+def clean_and_split_input(input):
+    """ Removes carriage return and line feed characters and splits input on a single whitespace. """
+    
+    input = input.strip()
+    input = input.split(' ')
+        
+    return input
+
+COMMANDS = {
+            'rename': ('rename <source path> <new name>', 'renames <source path> with <new path name>'),
+            'move': ('move <source path> <destination path>', 'moves <source path> to the directory <destination path>'),
+            'copy': ('copy <source path> <destination path>', 'copies <source path> to the directory <destination path>'),
+            'delete': ('delete <path>', 'deletes the file or directory given by <path>'),
+            'create': ('create <path>', 'creates the file or directory given by <path>'),
+	    'done' : ('done', 'exits directory management'),
+	    'help' : ('help', 'lists available operations'),
+	    
+}
+
+def main():
+
+	print "Type help for list of available commands"
+	while(True):
+		
+		src_path = '';
+		dst_path = '';
+		input = raw_input("Enter a command: ")
+		input = clean_and_split_input(input)
+
+		# return if data is empty
+		if len(input) == 0 or input == '':
+			return 
+		elif len(input) == 2:
+			src_path = input[1]
+		elif len(input) == 3:
+			src_path = input[1]
+			dst_path = input[2]
+		else:
+			pass
+		
+
+		# convert to lowercase
+		command = input[0].lower()
+
+		if not command in COMMANDS:
+			print('Invalid command')
+
+		
+		if command == 'done':
+			return
+		elif command == 'help':
+			for key, value in COMMANDS.iteritems():
+				print('%s - %s' % (value[0], value[1]))
+		elif command == 'rename':
+			rename(src_path, dst_path)
+		elif command == 'move':
+			move(src_path, dst_path)
+		elif command == 'copy':
+			copy(src_path, dst_path)
+		elif command == 'delete':
+			delete(src_path)
+		elif command == 'create':
+			create(src_path)
+
+
+
+if __name__ == '__main__':
+	main()
+
+
+
+
+
+
