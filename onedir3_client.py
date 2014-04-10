@@ -1,170 +1,256 @@
+
+#!/usr/bin/env python
+
+'''
+Author: Team 3 OneDir, CS 3240 At The University Of Virginia Spring 2014
+Ty Dang, Sravan Tumuluri, Piyapath Siratarnsophon, Dylan Doggett
+'''
+
 import os, sys, shutil
+import optparse
+from twisted.internet import reactor, protocol, stdio, defer
+from twisted.protocols import basic
+from twisted.internet.protocol import ClientFactory
+from common import COMMANDS, display_message, validate_file_md5_hash, get_file_md5_hash, read_bytes_from_file, clean_and_split_input
 
-def rename(src,dst):
-	"""renames file or directory src to dst and returns True if successful"""
-	if os.path.isfile(src) or os.path.isdir(src):
-		
-		try:
-			os.renames(src,dst)
-			return True
-		except OSError, e:
-			print e
-		        return False
-	else: 
-		print "%s does not exist" % src
-		return False
+HOST = '127.0.0.1'
+PORT = 8123
+DIRECTORY = '/home/student/testonedirlocal'
 
-def move(src,dst):
-	"""moves the file or directory src to the directory dst and returns True if successful"""
-	#if os.access
-	try:
-		shutil.move(src,dst)
-		return True
-	except OSError, e:
-		print e
-        	return False
-	except shutil.Error, e:
-		print e
-		return False
-
-def copy(src,dst):
-	if os.path.isfile(src):
-		try:
-			shutil.copy2(src,dst)
-			return True
-		except OSError, e:
-			print e
-			return False
-		except shutil.Error, e:
-			print e
-			return False
-
-	elif os.path.isdir(src):
-		if os.path.isfile(dst) or os.path.isdir(dst):
-			print "Destination path already exists -- cannot overwrite directory"
-			return False
-		else:
-			try:
-				shutil.copytree(src,dst)
-				return True
-			except OSError, e:
-				print e
-				return False
-			except shutil.Error, e:
-				print e
-				return False
-	else:
-		print "%s does not exist" % src
-		return False
-
-def delete(path):
-	if os.path.isdir(path):	
-		try:
-			shutil.rmtree(path)
-			return True
-		except OSError, e:
-			print e
-		        return False
-		except shutil.Error, e:
-			print e
-			return False
-
-	elif os.path.isfile(path):
-		try:
-			os.remove(path)
-			return True
-		except OSError, e:
-			print e
-		        return False
-
-	else:
-		print "%s does not exist" % path
-		return False
-
-
-def create(path): 
-	if not os.path.exists(path):
-		try:	
-			os.makedirs(path)
-			return True
-		except OSError, e: 
-			print e
-			return False
-	else:
-		print "%s already exists" % path
-		return False
-
-def clean_and_split_input(input):
-    """ Removes carriage return and line feed characters and splits input on a single whitespace. """
+# File transfer code down below
+class OnedirProtocol(basic.LineReceiver):
+    delimiter = '\n'
     
-    input = input.strip()
-    input = input.split(' ')
+    def __init__(self, server_ip, server_port, files_path):
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.files_path = files_path
+    
+    def connectionMade(self):  
+        self.factory = FileTransferClientFactory(self.files_path)
+        self.connection = reactor.connectTCP(self.server_ip, self.server_port, self.factory)
+        self.factory.deferred.addCallback(self._display_response)
         
-    return input
+    def lineReceived(self, line):
+        """ If a line is received, call sendCommand(), else prompt user for input. """
+        
+        if not line:
+            self._prompt()
+            return
+        
+        self._sendCommand(line)
+        
+    def _sendCommand(self, line):
+        """ Sends a command to the server. """
+        
+        data = clean_and_split_input(line) 
+        if len(data) == 0 or data == '':
+            return 
 
-COMMANDS = {
-            'rename': ('rename <source path> <new name>', 'renames <source path> with <new path name>'),
-            'move': ('move <source path> <destination path>', 'moves <source path> to the directory <destination path>'),
-            'copy': ('copy <source path> <destination path>', 'copies <source path> to the directory <destination path>'),
-            'delete': ('delete <path>', 'deletes the file or directory given by <path>'),
-            'create': ('create <path>', 'creates the file or directory given by <path>'),
-	    'done' : ('done', 'exits directory management'),
-	    'help' : ('help', 'lists available operations'),
-	    
-}
+        command = data[0].lower()
+        if not command in COMMANDS:
+            self._display_message('Invalid command')
+            return
+        
+        if command == 'list' or command == 'help' or command == 'quit':
+            self.connection.transport.write('%s\n' % (command))
+        elif command == 'get':
+            try:
+                filename = data[1]
+            except IndexError:
+                self._display_message('Missing filename')
+                return
+            
+            self.connection.transport.write('%s %s\n' % (command, filename))
+        elif command == 'put':
+            try:
+                file_path = data[1]
+                filename = data[2]
+            except IndexError:
+                self._display_message('Missing local file path or remote file name')
+                return
+            
+            if not os.path.isfile(file_path):
+                self._display_message('This file does not exist')
+                return
 
-def main():
+            file_size = os.path.getsize(file_path) / 1024
+            
+            print 'Uploading file: %s (%d KB)' % (filename, file_size)
+            
+            self.connection.transport.write('PUT %s %s\n' % (filename, get_file_md5_hash(file_path)))
+            self.setRawMode()
+            
+            for bytes in read_bytes_from_file(file_path):
+                self.connection.transport.write(bytes)
+            
+            self.connection.transport.write('\r\n')   
+            
+            # When the transfer is finished, we go back to the line mode 
+            self.setLineMode()
+        elif command == 'rename':
+            """renames file or directory src to dst and returns True if successful"""
+            src = '';
+            dst = '';
+            input = clean_and_split_input(line)
+            if len(input) == 3:
+                src = input[1];
+                dst = input[2];
+            if os.path.isfile(src) or os.path.isdir(src):
+                try:
+                    os.renames(src,dst)
+                    return True
+		except OSError, e:
+                    print e
+                    return False
+            else: 
+		print "%s does not exist" % src
+		return False
+        elif command == 'delete':
+            src = '';
+            input = clean_and_split_input(line)
+            if len(input) == 2:
+                src = input[1];
+            if os.path.isdir(src):	
+		try:
+                    shutil.rmtree(src)
+                    return True
+		except OSError, e:
+                    print e
+                    return False
+		except shutil.Error, e:
+                    print e
+                    return False
+            elif os.path.isfile(src):
+		try:
+                    os.remove(src)
+                    return True
+		except OSError, e:
+                    print e
+                    return False
+            else:
+		print "%s does not exist" % src
+		return False
+        elif command == 'create':
+            src = '';
+            input = clean_and_split_input(line)
+            if len(input) == 2:
+                src = input[1];
+            if not os.path.exists(src):
+		try:	
+                    os.makedirs(src)
+                    return True
+		except OSError, e: 
+                    print e
+                    return False
+            else:
+                print "%s already exists" % src
+		return False
+        else:
+            self.connection.transport.write('%s %s\n' % (command, data[1]))
 
-	print "Type help for list of available commands"
-	while(True):
-		
-		src_path = '';
-		dst_path = '';
-		input = raw_input("Enter a command: ")
-		input = clean_and_split_input(input)
+        self.factory.deferred.addCallback(self._display_response)
+        
+    def _display_response(self, lines = None):
+        """ Displays a server response. """
+        
+        if lines:
+            for line in lines:
+                print '%s' % (line)
+            
+        self._prompt()
+        self.factory.deferred = defer.Deferred()
+        
+    def _prompt(self):
+        """ Prompts user for input. """
+        self.transport.write('> ')
+        
+    def _display_message(self, message):
+        """ Helper function which prints a message and prompts user for input. """
+        
+        print message
+        self._prompt()    
 
-		# return if data is empty
-		if len(input) == 0 or input == '':
-			return 
-		elif len(input) == 2:
-			src_path = input[1]
-		elif len(input) == 3:
-			src_path = input[1]
-			dst_path = input[2]
-		else:
-			pass
-		
+class FileTransferProtocol(basic.LineReceiver):
+    delimiter = '\n'
 
-		# convert to lowercase
-		command = input[0].lower()
+    def connectionMade(self):
+        self.buffer = []
+        self.file_handler = None
+        self.file_data = ()
+        
+        print 'Connected to the server'
+        
+    def connectionLost(self, reason):
+        self.file_handler = None
+        self.file_data = ()
+        
+        print 'Connection to the server has been lost'
+        reactor.stop()
+    
+    def lineReceived(self, line):
+        if line == 'ENDMSG':
+            self.factory.deferred.callback(self.buffer)
+            self.buffer = []
+        elif line.startswith('HASH'):
+            # Received a file name and hash, server is sending us a file
+            data = clean_and_split_input(line)
 
-		if not command in COMMANDS:
-			print('Invalid command')
+            filename = data[1]
+            file_hash = data[2]
+            
+            self.file_data = (filename, file_hash)
+            self.setRawMode()
+        else:
+            self.buffer.append(line)
+        
+    def rawDataReceived(self, data):
+        filename = self.file_data[0]
+        file_path = os.path.join(self.factory.files_path, filename)
+        
+        print 'Receiving file chunk (%d KB)' % (len(data))
+        
+        if not self.file_handler:
+            self.file_handler = open(file_path, 'wb')
+            
+        if data.endswith('\r\n'):
+            # Last chunk
+            data = data[:-2]
+            self.file_handler.write(data)
+            self.setLineMode()
+            
+            self.file_handler.close()
+            self.file_handler = None
+            
+            if validate_file_md5_hash(file_path, self.file_data[1]):
+                print 'File %s has been successfully transfered and saved' % (filename)
+            else:
+                os.unlink(file_path)
+                print 'File %s has been successfully transfered, but deleted due to invalid MD5 hash' % (filename)
+        else:
+            self.file_handler.write(data)
 
-		
-		if command == 'done':
-			return
-		elif command == 'help':
-			for key, value in COMMANDS.iteritems():
-				print('%s - %s' % (value[0], value[1]))
-		elif command == 'rename':
-			rename(src_path, dst_path)
-		elif command == 'move':
-			move(src_path, dst_path)
-		elif command == 'copy':
-			copy(src_path, dst_path)
-		elif command == 'delete':
-			delete(src_path)
-		elif command == 'create':
-			create(src_path)
+class FileTransferClientFactory(protocol.ClientFactory):
+    protocol = FileTransferProtocol
+    
+    def __init__(self, files_path):
+        self.files_path = files_path
+        self.deferred = defer.Deferred()
 
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        HOST = sys.argv[1]
+    print "Connecting to (HOST, PORT): ", (HOST, PORT)
+    print "Welcome to Team 3's OneDir! How may we help you?"
 
+    parser = optparse.OptionParser()
+    parser.add_option('--ip', action = 'store', type = 'string', dest = 'ip_address', default = HOST, help = '137.54.12.144')
+    parser.add_option('-p', '--port', action = 'store', type = 'int', dest = 'port', default = PORT, help = 'server port')
+    parser.add_option('--path', action = 'store', type = 'string', dest = 'path', default = DIRECTORY, help = 'directory where the incoming files are saved')
+    
+    (options, args) = parser.parse_args()
 
-if __name__ == '__main__':
-	main()
-
-
-
-
-
-
+    print 'Client started, incoming files will be saved to %s' % (options.path)
+    
+    stdio.StandardIO(OnedirProtocol(options.ip_address, options.port, options.path))
+    reactor.run()
