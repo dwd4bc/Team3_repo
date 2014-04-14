@@ -54,25 +54,6 @@ class OnedirProtocol(basic.LineReceiver):
         
         if command == 'list' or command == 'help' or command == 'quit':
             self.connection.transport.write('%s\n' % (command))
-
-	elif command == 'register':
-	    try:
-		username = data[1]
-		password = data[2]
-	    except IndexError:
-                self._display_message('Missing username or password')
-		return
-            self.connection.transport.write('%s %s %s\n' % (command, username, password))
-
-	elif command == 'login':
-	    try:
-		username = data[1]
-		password = data[2]
-	    except IndexError:
-                self._display_message('Missing username or password')
-		return
-            self.connection.transport.write('%s %s %s\n' % (command, username, password))
-
         elif command == 'get':
             try:
                 filename = data[1]
