@@ -19,8 +19,11 @@ PORT = 8123
 DIRECTORY = '/home/student/testonedirlocal'
 
 #for watchdog
-path = '/home/boom/student/OneDir/'
-dest = '/home/boom/student/OneDir_server/'
+
+#path = '/home/boom/student/OneDir/'
+path = '/home/student/OneDir/'
+#dest = '/home/boom/student/OneDir_server/'
+dest = '/home/student/OneDir_server/'
 fileActivity = []
 
 # File transfer code down below
@@ -31,6 +34,8 @@ class OnedirProtocol(basic.LineReceiver):
         self.server_ip = server_ip
         self.server_port = server_port
         self.files_path = files_path
+    	self.username = 0
+	self.logged_in = False
 
     def connectionMade(self):
         self.factory = FileTransferClientFactory(self.files_path)
@@ -58,63 +63,92 @@ class OnedirProtocol(basic.LineReceiver):
             self._display_message('Invalid command')
             return
 
-        if command == 'list' or command == 'help' or command == 'quit':
-            self.connection.transport.write('%s\n' % (command))
-
-        elif command == 'register':
-            try:
-                username = data[1]
-                password = data[2]
-            except IndexError:
+        if command == 'list' or command == 'help' or command == 'quit' or command == 'registry':
+            self.connection.transport.write('%s %s\n' % (command, self.username))
+	
+	elif command == 'register':
+	    try:
+		username = data[1]
+		password = data[2]
+		
+	    except IndexError:
                 self._display_message('Missing username or password')
-                return
-            self.connection.transport.write('%s %s %s\n' % (command, username, password))
+		return
 
-        elif command == 'login':
-            try:
-                username = data[1]
-                password = data[2]
-            except IndexError:
+            self.connection.transport.write('%s %s %s %s\n' % (command, username, password, self.username))
+	
+
+	elif command == 'login':
+	    if self.logged_in != False:
+		self._display_message('You are already logged in. Log out to change users.')
+		return
+	    try:
+		username = data[1]
+		password = data[2]
+	    except IndexError:
                 self._display_message('Missing username or password')
-                return
-            self.connection.transport.write('%s %s %s\n' % (command, username, password))
+		return
+	    self.username = username
+            self.connection.transport.write('%s %s %s %s\n' % (command, username, password, self.username))
 
+	elif command == 'logout':
+	    print "elif command == logout: ", self.logged_in
+	    if self.logged_in != True:
+		self._display_message('You are not logged into any account.')
+		return
+            self.connection.transport.write('%s %s\n' % (command, self.username))
+
+#############################
         elif command == 'get':
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
             try:
                 filename = data[1]
             except IndexError:
                 self._display_message('Missing filename')
                 return
+            
+            self.connection.transport.write('%s %s %s\n' % (command, filename, self.username))
 
-            self.connection.transport.write('%s %s\n' % (command, filename))
+#############################
         elif command == 'put':
+
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
             try:
                 file_path = data[1]
                 filename = data[2]
             except IndexError:
                 self._display_message('Missing local file path or remote file name')
                 return
-
+            
             if not os.path.isfile(file_path):
                 self._display_message('This file does not exist')
                 return
 
             file_size = os.path.getsize(file_path) / 1024
-
+            
             print 'Uploading file: %s (%d KB)' % (filename, file_size)
-
-            self.connection.transport.write('PUT %s %s\n' % (filename, get_file_md5_hash(file_path)))
+            
+            self.connection.transport.write('PUT %s %s %s\n' % (filename, get_file_md5_hash(file_path), self.username))
             self.setRawMode()
-
+            
             for bytes in read_bytes_from_file(file_path):
                 self.connection.transport.write(bytes)
-
-            self.connection.transport.write('\r\n')
-
+            
+            self.connection.transport.write('\r\n')   
+            
             # When the transfer is finished, we go back to the line mode 
             self.setLineMode()
+
+#####################################
         elif command == 'rename':
             """renames file or directory src to dst and returns True if successful"""
+	    if self.logged_in == False:
+		self._display_message('You must be logged in.')
+	        self._prompt()
             src = '';
             dst = '';
             input = clean_and_split_input(line)
@@ -124,14 +158,22 @@ class OnedirProtocol(basic.LineReceiver):
             if os.path.isfile(src) or os.path.isdir(src):
                 try:
                     os.renames(src, dst)
-                    return True
+                    print '%s renamed to %s' % (src, dst)
+	            self._prompt()
                 except OSError, e:
                     print e
-                    return False
+	            self._prompt()
             else:
                 print "%s does not exist" % src
-                return False
+	        self._prompt()
+
+####################################
         elif command == 'delete':
+
+	    if self.logged_in == False:
+		self._display_message('You must be logged in.')
+	        self._prompt()
+
             src = '';
             input = clean_and_split_input(line)
             if len(input) == 2:
@@ -139,24 +181,32 @@ class OnedirProtocol(basic.LineReceiver):
             if os.path.isdir(src):
                 try:
                     shutil.rmtree(src)
-                    return True
+                    print '%s removed' % src
+	            self._prompt()
                 except OSError, e:
                     print e
-                    return False
+	            self._prompt()
                 except shutil.Error, e:
                     print e
-                    return False
+	            self._prompt()
             elif os.path.isfile(src):
                 try:
                     os.remove(src)
-                    return True
+                    print '%s removed' % src
+	            self._prompt()
                 except OSError, e:
                     print e
-                    return False
+	            self._prompt()
             else:
                 print "%s does not exist" % src
-                return False
+	        self._prompt()
+#################################################3
         elif command == 'create':
+
+	    if self.logged_in == False:
+		self._display_message('You must be logged in.')
+	        self._prompt()
+
             src = '';
             input = clean_and_split_input(line)
             if len(input) == 2:
@@ -164,15 +214,17 @@ class OnedirProtocol(basic.LineReceiver):
             if not os.path.exists(src):
                 try:
                     os.makedirs(src)
-                    return True
+                    print '%s created' % src
+	            self._prompt()
                 except OSError, e:
                     print e
-                    return False
+	            self._prompt()
             else:
                 print "%s already exists" % src
-                return False
+	        self._prompt()
+#####################################################333
         else:
-            self.connection.transport.write('%s %s\n' % (command, data[1]))
+            self.connection.transport.write('%s %s %s\n' % (command, data[1]), self.username)
 
         self.factory.deferred.addCallback(self._display_response)
 
@@ -181,7 +233,20 @@ class OnedirProtocol(basic.LineReceiver):
 
         if lines:
             for line in lines:
+		data = self._cleanAndSplitInput(line)
+		#print 'data: ', data
+		if len(data) == 3 and data[0] == 'Logged' and data[1] == 'In':
+			#print "display response_Logged in"
+		        self.username = data[2]
+			self.logged_in = True
+	
+			#print self.logged_in
+		if len(data) == 5 and ' '.join(data[1:]) == "logged out of system":
+		    	self.logged_in = False
+		    	self.username = 0
                 print '%s' % (line)
+		#print "display response_logged in flag", self.logged_in
+            
 
         self._prompt()
         self.factory.deferred = defer.Deferred()
@@ -195,6 +260,11 @@ class OnedirProtocol(basic.LineReceiver):
 
         print message
         self._prompt()
+
+    def _cleanAndSplitInput(self, input):
+	input = input.strip()
+	input = input.split(' ')		
+	return input
 
 
 class FileTransferProtocol(basic.LineReceiver):
@@ -216,9 +286,7 @@ class FileTransferProtocol(basic.LineReceiver):
         reactor.stop()
 
     def lineReceived(self, line):
-        print(line)
         if line == 'ENDMSG':
-            print("here")
             self.factory.deferred.callback(self.buffer)
             self.buffer = []
         elif line.startswith('HASH'):

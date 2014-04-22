@@ -12,6 +12,8 @@ COMMANDS = {
             'create': ('create', 'Create a new folder <new folder name>'),
 	    'login': ('login <username> <password>', 'logs user into account'),
 	    'register': ('register <username> <password>', 'registers user account'),
+	    'registry': ('registry', 'lists all users and passwords'),
+	    'logout': ('logout', 'logs user out of system account'),
 }
 
 def timestamp():

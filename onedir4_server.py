@@ -17,10 +17,11 @@ DIRECTORY = '/home/boom/PycharmProjects/OneDir'
 
 import login_demo
 
+clients = []
 
 class FileTransferProtocol(basic.LineReceiver):
     delimiter = '\n'
-
+	
     def connectionMade(self):
         self.factory.clients.append(self)
         self.file_handler = None
@@ -41,19 +42,29 @@ class FileTransferProtocol(basic.LineReceiver):
             'Connection from %s lost (%d clients left)' % (self.transport.getPeer().host, len(self.factory.clients)))
 
     def lineReceived(self, line):
+	global clients
         display_message('Received the following line from the client [%s]: %s' % (self.transport.getPeer().host, line))
 
         data = self._cleanAndSplitInput(line)
         if len(data) == 0 or data == '':
             return
+	
+	user = data.pop()
 
         command = data[0].lower()
         if not command in COMMANDS:
             self.transport.write('Invalid command\n')
             self.transport.write('ENDMSG\n')
             return
+
+	if command != 'login' and command != 'quit' and user not in clients:
+		self.transport.write('You must be logged in\n')
+		self.transport.write('ENDMSG\n')
+		return
+
         if command == 'list':
             self._send_list_of_files()
+
         elif command == 'get':
             try:
                 filename = data[1]
@@ -107,6 +118,14 @@ class FileTransferProtocol(basic.LineReceiver):
 
             self.transport.write('ENDMSG\n')
 
+	elif command == 'registry':
+		registry = login_demo.retrieve_login_info()
+		self.transport.write('username\t\tpassword\n')
+		for key, value in registry.iteritems():
+			self.transport.write('%s\t\t\t%s\n' % (key, value[0]))
+		
+		self.transport.write('ENDMSG\n')			
+
         elif command == 'register':
             username = data[1]
             password = data[2]
@@ -116,13 +135,28 @@ class FileTransferProtocol(basic.LineReceiver):
             self.transport.write('ENDMSG\n')
 
         elif command == 'login':
-            username = data[1]
-            password = data[2]
-            answer = login_demo.login(username, password)
-            print answer
-            self.transport.write('%s\n' % answer)
-            self.transport.write('ENDMSG\n')
+	    global clients
+	    if user in clients:
+		self.transport.write('%s is already logged in.\n' % user)
+                self.transport.write('ENDMSG\n')
+	    else: 
+                username = data[1]
+                password = data[2]
+                answer = login_demo.login(username, password)
+       	        if answer == "Logged In":
+         	    display_message(username)
+		    clients.append(username)
+                print answer
+	    	print clients
+                self.transport.write('%s %s\n' % (answer, username))
+                self.transport.write('ENDMSG\n')
 
+	elif command == 'logout':
+	    global clients
+	    clients.remove(user)
+	    self.transport.write('%s logged out of system\n' % user)				
+	    self.transport.write('ENDMSG\n')				
+			
         elif command == 'quit':
             self.transport.loseConnection()
 
