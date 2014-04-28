@@ -5,7 +5,7 @@ Author: Team 3 OneDir, CS 3240 At The University Of Virginia Spring 2014
 Ty Dang, Sravan Tumuluri, Piyapath Siratarnsophon, Dylan Doggett
 '''
 
-import os
+import os, sys, shutil
 import optparse
 from twisted.internet import protocol, reactor
 from twisted.protocols import basic
@@ -13,11 +13,12 @@ from time import ctime
 from common import COMMANDS, display_message, validate_file_md5_hash, get_file_md5_hash, read_bytes_from_file, clean_and_split_input
 
 PORT = 8123
-DIRECTORY = '/home/boom/PycharmProjects/OneDir'
+DIRECTORY = '/home/student/OneDir_server'
 
 import login_demo
 
 clients = []
+admin = []
 
 class FileTransferProtocol(basic.LineReceiver):
     delimiter = '\n'
@@ -34,6 +35,7 @@ class FileTransferProtocol(basic.LineReceiver):
             'Connection from: %s (%d clients total)' % (self.transport.getPeer().host, len(self.factory.clients)))
 
     def connectionLost(self, reason):
+	
         self.factory.clients.remove(self)
         self.file_handler = DIRECTORY
         self.file_data = (DIRECTORY)
@@ -61,6 +63,9 @@ class FileTransferProtocol(basic.LineReceiver):
 		self.transport.write('You must be logged in\n')
 		self.transport.write('ENDMSG\n')
 		return
+
+
+	print data
 
         if command == 'list':
             self._send_list_of_files()
@@ -119,41 +124,117 @@ class FileTransferProtocol(basic.LineReceiver):
             self.transport.write('ENDMSG\n')
 
 	elif command == 'registry':
+	    global admin
+	    if user not in admin:
+		self.transport.write('%s does not have administrative rights.\n' % user)
+                self.transport.write('ENDMSG\n')
+	    else:
+		
+	    # TODO; check if user is in admin list first
 		registry = login_demo.retrieve_login_info()
-		self.transport.write('username\t\tpassword\n')
+		self.transport.write('username\t\tpassword\t\trole\n')
 		for key, value in registry.iteritems():
-			self.transport.write('%s\t\t\t%s\n' % (key, value[0]))
+			self.transport.write('%s\t\t\t%s\t\t\t%s\n' % (key, value[0],  value[1]))
 		
 		self.transport.write('ENDMSG\n')			
 
         elif command == 'register':
+	    global admin
+	    if user not in admin:
+		self.transport.write('%s does not have administrative rights.\n' % user)
+                self.transport.write('ENDMSG\n')
+	    # TODO; check if user is in admin list first
             username = data[1]
             password = data[2]
-            answer = login_demo.register_user(username, password)
+	    role = data [3]
+            answer = login_demo.register_user(username, password, role)
             print answer
+
+	    created = "user %s has been created" % username
+	    if answer == created:
+		user_path = DIRECTORY + "/%s/OneDir" % username
+		if not os.path.exists(user_path):
+		    try:	
+			os.makedirs(user_path)
+		    except OSError, e: 
+			print e
+	    else:
+		print "%s already exists" % path
+		return False
+
+		
             self.transport.write('%s\n' % answer)
+            self.transport.write('ENDMSG\n')
+
+
+#####################################################################3
+	elif command == 'change_password':
+	    global admin
+	    if user not in admin:
+		self.transport.write('%s does not have administrative rights.\n' % user)
+                self.transport.write('ENDMSG\n')
+            username = data[1]
+            password = data[2]
+	    login_demo.change_password(username, password)
+            self.transport.write('ENDMSG\n')
+	    
+	elif command == 'remove_user':
+	    global admin
+	    if user not in admin:
+		self.transport.write('%s does not have administrative rights.\n' % user)
+                self.transport.write('ENDMSG\n')
+            username = data[1]
+	    login_demo.delete_user(username)
+	    user_path = DIRECTORY + "/%s" % username
+	    print user_path
+            if os.path.isdir(user_path):	
+		try:
+		    shutil.rmtree(user_path)
+		except OSError, e:
+		    print e
+		except shutil.Error, e:
+              	    print e
+	    else:
+		print "%s does not exist" % user_path
             self.transport.write('ENDMSG\n')
 
         elif command == 'login':
 	    global clients
-	    if user in clients:
-		self.transport.write('%s is already logged in.\n' % user)
+	    global admin
+	    print "user: ", user
+	    print "data[1]: ", data[1]
+	    if user in clients or data[1] in clients:
+		self.transport.write('%s is already logged in.\n' % data[1])
                 self.transport.write('ENDMSG\n')
 	    else: 
                 username = data[1]
                 password = data[2]
                 answer = login_demo.login(username, password)
-       	        if answer == "Logged In":
+		message = answer[0]
+		role = ' '
+       	        if message == "Logged In":
+		    role = answer[1]
          	    display_message(username)
+		    display_message(role)
 		    clients.append(username)
-                print answer
-	    	print clients
-                self.transport.write('%s %s\n' % (answer, username))
+		    if role == "admin":
+	   	        admin.append(username)
+                print message
+	    	print "clients: ", clients
+		print "admin: ", admin
+                self.transport.write('%s %s\n' % (message, username))
                 self.transport.write('ENDMSG\n')
 
 	elif command == 'logout':
 	    global clients
+	    global admin
 	    clients.remove(user)
+	    if user in admin:
+	        admin.remove(user)
+
+	    print "clients: ", clients
+	    print "admin: ", admin
+	    
 	    self.transport.write('%s logged out of system\n' % user)				
 	    self.transport.write('ENDMSG\n')				
 			

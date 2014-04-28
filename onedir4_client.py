@@ -57,26 +57,72 @@ class OnedirProtocol(basic.LineReceiver):
         data = clean_and_split_input(line)
         if len(data) == 0 or data == '':
             return
+	
+	command = data[0].lower()
 
-        command = data[0].lower()
         if not command in COMMANDS:
             self._display_message('Invalid command')
             return
 
-        if command == 'list' or command == 'help' or command == 'quit' or command == 'registry':
+        if command == 'list' or command == 'help' or command == 'quit':
+            self.connection.transport.write('%s %s\n' % (command, self.username))
+
+	elif command == 'help':
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
+            self.connection.transport.write('%s %s\n' % (command, self.username))
+
+	elif command == 'list':
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
             self.connection.transport.write('%s %s\n' % (command, self.username))
 	
+	elif command == 'registry':
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
+            self.connection.transport.write('%s %s\n' % (command, self.username))
+
 	elif command == 'register':
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
 	    try:
 		username = data[1]
 		password = data[2]
+		role = data[3]
 		
 	    except IndexError:
                 self._display_message('Missing username or password')
 		return
 
-            self.connection.transport.write('%s %s %s %s\n' % (command, username, password, self.username))
+            self.connection.transport.write('%s %s %s %s %s\n' % (command, username, password, role, self.username))
 	
+	elif command == 'change_password':
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
+	    try:
+	        username = data[1]
+  		password = data[2]
+
+	    except IndexError:
+                self._display_message('Missing username or password')
+		return
+            self.connection.transport.write('%s %s %s %s\n' % (command, username, password, self.username))
+
+	elif command == 'remove_user':
+	    if self.logged_in == False:
+		self._display_message('You must be logged in')
+		return
+	    try:
+	        username = data[1]
+	    except IndexError:
+                self._display_message('Missing username')
+		return
+            self.connection.transport.write('%s %s %s\n' % (command, username, self.username))
 
 	elif command == 'login':
 	    if self.logged_in != False:
@@ -88,11 +134,9 @@ class OnedirProtocol(basic.LineReceiver):
 	    except IndexError:
                 self._display_message('Missing username or password')
 		return
-	    self.username = username
             self.connection.transport.write('%s %s %s %s\n' % (command, username, password, self.username))
 
 	elif command == 'logout':
-	    print "elif command == logout: ", self.logged_in
 	    if self.logged_in != True:
 		self._display_message('You are not logged into any account.')
 		return
@@ -224,7 +268,7 @@ class OnedirProtocol(basic.LineReceiver):
 	        self._prompt()
 #####################################################333
         else:
-            self.connection.transport.write('%s %s %s\n' % (command, data[1]), self.username)
+            self.connection.transport.write('%s %s\n' % (command, self.username))
 
         self.factory.deferred.addCallback(self._display_response)
 
